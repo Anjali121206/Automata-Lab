@@ -6,7 +6,7 @@ An interactive Theory of Computation simulator built with plain HTML, CSS, and J
 
 Open `index.html` in a modern browser. Choose an automaton type, select a sample machine, enter a string from its alphabet, then use **Run**, **Step**, **Pause**, and **Reset**. `Ctrl+Enter` (or `⌘+Enter`) starts a run; `Esc` pauses it.
 
-Run the engine checks with Node.js 18 or newer: `node --test tests/engines.test.cjs`.
+Run the dependency-free verification suite with Node.js: `node tests/verify.cjs` or `npm test`.
 
 ## What's included
 
@@ -23,7 +23,10 @@ Run the engine checks with Node.js 18 or newer: `node --test tests/engines.test.
 - `styles.css` — responsive visual design.
 - `engines.js` — machine definitions and small, UI-independent execution engines.
 - `app.js` — rendering and interaction wiring.
-- `tests/engines.test.cjs` — dependency-free checks for representative DFA, NFA, TM, and PDA executions.
+- `tests/verify.cjs` — runs all dependency-free test modules.
+- `tests/engines.test.cjs` — representative DFA, NFA, TM, and PDA runner checks.
+- `tests/machines.test.cjs` — bundled machine definition and example checks.
+- `tests/ui.test.cjs` — simulator markup wiring checks.
 
 The engines are exposed as `window.AutomataEngines`. Each runner provides `step()`, `run()`, `reset()`, and `snapshot()`. To integrate another team's engines, adapt their transition results to the same snapshot fields (`state` or `active`, `reading`, `history`, and `status`) and wire them through the corresponding mode in `app.js`.
 

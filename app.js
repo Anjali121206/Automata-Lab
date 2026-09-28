@@ -1,37 +1,389 @@
-(function(){
-  const E=window.AutomataEngines, $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-  const state={mode:'dfa',machine:null,runner:null,timer:null,snapshot:null};
-  const speedNames=['Slow','Leisurely','Normal','Quick','Fast'];
-  const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function list(){return E.definitions[state.mode];}
-  function loadMachine(id){stop();state.machine=list().find(m=>m.id===id)||list()[0];const select=$('#machine-select');select.innerHTML=list().map(m=>`<option value="${m.id}">${m.name} · ${m.kind}</option>`).join('');select.value=state.machine.id;$('#machine-description').textContent=state.machine.description;$('#input-alphabet').textContent=state.machine.alphabet.join('  ');$('#input-string').value=state.machine.example;$('#input-string').placeholder=state.mode==='tm'?'e.g. 1011':state.mode==='pda'?'e.g. aaabbb':'e.g. 1101';$('#visual-title').textContent=state.mode==='tm'?'TAPE CONTENTS':'INPUT TAPE';$('#stack-section').classList.toggle('hidden',state.mode!=='pda');$('#input-pointer').classList.toggle('hidden',state.mode==='tm'||state.mode==='pda');$('#pointer-label').classList.toggle('hidden',state.mode==='tm'||state.mode==='pda');$('#diagram-caption').textContent=state.machine.notes;state.runner=null;state.snapshot=null;renderDiagram();reset();renderLibrary();}
-  function validInput(){const input=$('#input-string').value;const invalid=[...new Set([...input].filter(ch=>!state.machine.alphabet.includes(ch)))];const feedback=$('#input-feedback');if(invalid.length){feedback.textContent=`Use symbols from this alphabet: ${state.machine.alphabet.join(', ')}. Invalid: ${invalid.join(', ')}`;feedback.className='input-feedback error';return false;}feedback.textContent=input.length?'Input looks good. Ready to run.':'Empty input (ε)';feedback.className='input-feedback good';return true;}
-  function createRunner(){const input=$('#input-string').value;state.runner=state.mode==='tm'?E.createTuringRunner(state.machine,input):state.mode==='pda'?E.createPdaRunner(state.machine,input):E.createFiniteRunner(state.machine,input);}
-  function reset(){stop();if(!state.machine||!validInput())return;createRunner();state.snapshot=state.runner.snapshot();render(state.snapshot);}
-  function startRun(){if(!validInput())return;if(!state.runner||!['ready','running'].includes(state.runner.snapshot().status))createRunner();$('#run-button').disabled=true;$('#pause-button').disabled=false;tick();if(state.runner&&['ready','running'].includes(state.runner.snapshot().status))state.timer=setInterval(tick,1100-(Number($('#speed-range').value)-1)*190);}
-  function tick(){if(!state.runner)return;const s=state.runner.step();state.snapshot=s;render(s);if(!['ready','running'].includes(s.status))stop();}
-  function stop(){if(state.timer){clearInterval(state.timer);state.timer=null;}$('#run-button').disabled=false;$('#pause-button').disabled=true;}
-  function manualStep(){if(!validInput())return;if(state.runner&&!['ready','running'].includes(state.runner.snapshot().status))return;if(!state.runner)createRunner();tick();}
-  function render(s){$('#current-state').textContent=state.mode==='dfa'?s.active.join(' ∪ ')||'∅':s.state;$('#step-count').textContent=s.history.length;$('#current-symbol').textContent=s.reading==='∅'?'ε':s.reading;const status=$('#status-pill');const names={ready:'Ready',running:'Running',accepted:'Accepted',rejected:'Rejected',halted:'Halted'};status.className=`status-pill ${s.status}`;status.querySelector('span').textContent=names[s.status]||s.status;
-    const tape=$('#tape-view');tape.className=`tape-view ${state.mode==='tm'?'tm-tape':''}`;
-    if(state.mode==='tm'){const vals=s.displayTape?.length?s.displayTape:['□'];tape.innerHTML=vals.map((v,i)=>`<div class="tape-cell ${s.head===i?'head-cell':''} ${v==='□'?'blank-cell':''}">${escapeHtml(v)}</div>`).join('');$('#pointer-label b').textContent=s.head;}
-    else {const input=$('#input-string').value;tape.innerHTML=input.length?[...input].map((v,i)=>`<div class="tape-cell ${i===s.position?'current-cell':''} ${i<s.position?'consumed-cell':''}">${escapeHtml(v)}</div>`).join(''):'<div class="epsilon-cell">ε <small>empty string</small></div>';const pct=input.length?Math.min(96,Math.max(4,(s.position+.5)/input.length*100)):50;$('#input-pointer').style.left=`${pct}%`;$(`#pointer-label b`).textContent=input.length?`${Math.min(s.position+1,input.length)} / ${input.length}`:'ε';}
-    if(state.mode==='pda'){const vals=[...s.stack].reverse();$('#stack-view').innerHTML=vals.length?vals.map((v,i)=>`<div class="stack-cell ${i===0?'stack-top':''}">${escapeHtml(v)}</div>`).join(''):'<div class="stack-empty">empty stack</div>';$('#stack-label').textContent=`${s.stack.length} ${s.stack.length===1?'item':'items'}`;}
-    $('#history-body').innerHTML=s.history.length?s.history.map((h,i)=>`<tr class="${i===s.history.length-1?'new-row':''}"><td>${h.index}</td><td><span class="state-tag">${escapeHtml(h.state)}</span></td><td><span class="symbol-tag">${escapeHtml(h.symbol)}</span></td><td>${escapeHtml(h.transition)}</td><td>${escapeHtml(h.to)}</td></tr>`).join(''):'<tr class="empty-row"><td colspan="5"><span class="empty-icon">⌁</span><br/>Your transition history will appear here.</td></tr>';
-    $('#log-count').textContent=`${s.history.length} ${s.history.length===1?'transition':'transitions'}`;
-    const last=s.history.at(-1);$('#transition-text').textContent=last?`${last.state} reads “${last.symbol}” → ${last.transition}; moves to ${last.to}.`:state.mode==='dfa'?`Starting in ${s.active.join(', ')||'∅'}. ${s.reading==='ε'?'The input is empty.':'Next symbol: '+s.reading+'.'}`:`Starting in ${s.state}. ${s.reading==='ε'?'The input is empty.':'Next symbol: '+s.reading+'.'}`;
-    $('#transition-banner').classList.toggle('hidden',['accepted','rejected','halted'].includes(s.status));const result=$('#result-banner');const outcomes={accepted:['success','✓','Accepted','The machine reached an accepting configuration.'],rejected:['failure','×','Rejected','This input does not belong to the language.'],halted:['warning','Ⅱ','Halted','No transition is defined for this state and symbol.']};if(outcomes[s.status]){const [cls,icon,title,desc]=outcomes[s.status];result.className=`result-banner ${cls}`;result.innerHTML=`<span class="result-icon">${icon}</span><span><strong>${title}</strong><small>${desc}</small></span>`;}else result.className='result-banner hidden';renderDiagram(s);}
-  function renderDiagram(snapshot){const svg=$('#diagram-svg'),m=state.machine;if(!m)return;const states=m.states,n=states.length,coords=states.map((_,i)=>({x:n===1?320:80+i*(480/(n-1)),y:i%2===0?108:145}));let markup='<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8b95a7"/></marker></defs>';
-    if(state.mode==='dfa'||state.mode==='pda'){
-      if(m.id==='ends-01'){markup+='<path class="loop-edge" d="M51 85 C25 30 128 22 103 84"/><text class="edge-label" x="75" y="42">1</text><path class="loop-edge" d="M291 75 C268 28 370 27 347 75"/><text class="edge-label" x="320" y="41">0</text><path class="edge" d="M110 108 L260 108"/><text class="edge-label" x="185" y="97">0</text><path class="edge" d="M363 108 L505 108"/><text class="edge-label" x="431" y="97">1</text><path class="edge" d="M268 133 Q186 203 102 133"/><text class="edge-label" x="183" y="184">1</text><path class="edge" d="M506 134 Q422 207 355 132"/><text class="edge-label" x="434" y="184">0</text>';}
-      else if(m.id==='even-ones'){markup+='<path class="loop-edge" d="M63 87 C38 27 148 27 123 87"/><text class="edge-label" x="94" y="40">0</text><path class="loop-edge" d="M516 87 C491 27 601 27 576 87"/><text class="edge-label" x="547" y="40">0</text><path class="edge" d="M140 113 L492 113"/><text class="edge-label" x="309" y="100">1</text><path class="edge" d="M492 134 L140 134"/><text class="edge-label" x="309" y="157">1</text>';}
-      else {states.forEach((s,i)=>{const p=coords[i];markup+=`<path class="edge" d="M${p.x+28} ${p.y+1} L${coords[(i+1)%n].x-28} ${coords[(i+1)%n].y+1}"/><text class="edge-label" x="${(p.x+coords[(i+1)%n].x)/2}" y="${(p.y+coords[(i+1)%n].y)/2-12}">transition</text>`;});}
-    }else{states.forEach((s,i)=>{const p=coords[i];if(i<n-1){markup+=`<path class="edge" d="M${p.x+29} ${p.y} L${coords[i+1].x-30} ${coords[i+1].y}"/><text class="edge-label" x="${(p.x+coords[i+1].x)/2}" y="${(p.y+coords[i+1].y)/2-14}">read / write, move</text>`;}});}
-    states.forEach((s,i)=>{const p=coords[i],accept=m.accepts.includes(s),active=snapshot&&(snapshot.active?snapshot.active.includes(s):snapshot.state===s);markup+=`<g class="state-node ${accept?'accept-node':''} ${s===m.start?'start-node':''} ${active?'active-node':''}"><circle cx="${p.x}" cy="${p.y}" r="27"/><text x="${p.x}" y="${p.y+4}">${escapeHtml(s)}</text>${accept?`<circle class="inner-circle" cx="${p.x}" cy="${p.y}" r="21"/>`:''}</g>`;if(s===m.start)markup+=`<path class="start-arrow" d="M${p.x-57} ${p.y} L${p.x-30} ${p.y}"/>`;});svg.innerHTML=markup;}
-  function renderLibrary(){const grid=$('#library-grid');grid.innerHTML=E.definitions[state.mode].map(m=>`<button class="card library-card" data-machine="${m.id}"><span class="library-kind">${m.kind}</span><h2>${escapeHtml(m.name)}</h2><p>${escapeHtml(m.description)}</p><span class="library-example">EXAMPLE <b>${escapeHtml(m.example||'ε')}</b></span><span class="library-arrow">↗</span></button>`).join('');grid.querySelectorAll('[data-machine]').forEach(b=>b.addEventListener('click',()=>{$('.nav-item[data-view="simulator"]').click();loadMachine(b.dataset.machine);}));}
-  function setMode(mode){state.mode=mode;$$('.mode-tab').forEach(b=>b.classList.toggle('selected',b.dataset.mode===mode));loadMachine(list()[0].id);}
-  $$('.mode-tab').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));$('#machine-select').addEventListener('change',e=>loadMachine(e.target.value));$('#input-string').addEventListener('input',()=>{const valid=validInput();if(valid&&state.runner)reset();else if(!valid){stop();state.runner=null;}});$('#run-button').addEventListener('click',startRun);$('#step-button').addEventListener('click',manualStep);$('#pause-button').addEventListener('click',stop);$('#reset-button').addEventListener('click',reset);$('#example-button').addEventListener('click',()=>{$('#input-string').value=state.machine.example;reset();});$('#speed-range').addEventListener('input',e=>$('#speed-value').textContent=speedNames[Number(e.target.value)-1]);$('#clear-log').addEventListener('click',()=>reset());$('#fit-diagram').addEventListener('click',()=>$('#diagram-canvas').classList.toggle('expanded'));$('#machine-info').addEventListener('click',()=>{$('.nav-item[data-view="guide"]').click();});
-  $$('.nav-item').forEach(b=>b.addEventListener('click',()=>{const view=b.dataset.view;$$('.nav-item').forEach(x=>x.classList.toggle('active',x===b));['simulator','machines','guide'].forEach(v=>$('#view-'+v).classList.toggle('hidden',v!==view));$('#crumb-current').textContent=view==='simulator'?'Simulator':view==='machines'?'Machine library':'Quick guide';if(view==='machines')renderLibrary();}));
-  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();startRun();}if(e.key==='Escape')stop();});
+/** Initializes the browser UI after its engine script has loaded. */
+(function () {
+  const E = window.AutomataEngines,
+    $ = (s) => document.querySelector(s),
+    $$ = (s) => [...document.querySelectorAll(s)];
+  const state = {
+    mode: "dfa",
+    machine: null,
+    runner: null,
+    timer: null,
+    snapshot: null,
+  };
+  const speedNames = ["Slow", "Leisurely", "Normal", "Quick", "Fast"];
+  /** Escapes machine-provided text before inserting it into markup. */
+  const escapeHtml = (s) =>
+    String(s).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
+  /** Returns the definitions for the selected machine mode. */
+  function list() {
+    return E.definitions[state.mode];
+  }
+  /** Selects a machine and resets the simulator view. */
+  function loadMachine(id) {
+    stop();
+    state.machine = list().find((m) => m.id === id) || list()[0];
+    const select = $("#machine-select");
+    select.innerHTML = list()
+      .map((m) => `<option value="${m.id}">${m.name} · ${m.kind}</option>`)
+      .join("");
+    select.value = state.machine.id;
+    $("#machine-description").textContent = state.machine.description;
+    $("#input-alphabet").textContent = state.machine.alphabet.join("  ");
+    $("#input-string").value = state.machine.example;
+    $("#input-string").placeholder =
+      state.mode === "tm"
+        ? "e.g. 1011"
+        : state.mode === "pda"
+          ? "e.g. aaabbb"
+          : "e.g. 1101";
+    $("#visual-title").textContent =
+      state.mode === "tm" ? "TAPE CONTENTS" : "INPUT TAPE";
+    $("#stack-section").classList.toggle("hidden", state.mode !== "pda");
+    $("#input-pointer").classList.toggle(
+      "hidden",
+      state.mode === "tm" || state.mode === "pda",
+    );
+    $("#pointer-label").classList.toggle(
+      "hidden",
+      state.mode === "tm" || state.mode === "pda",
+    );
+    $("#diagram-caption").textContent = state.machine.notes;
+    state.runner = null;
+    state.snapshot = null;
+    renderDiagram();
+    reset();
+    renderLibrary();
+  }
+  /** Validates the current input against the selected alphabet. */
+  function validInput() {
+    const input = $("#input-string").value;
+    const invalid = [
+      ...new Set(
+        [...input].filter((ch) => !state.machine.alphabet.includes(ch)),
+      ),
+    ];
+    const feedback = $("#input-feedback");
+    if (invalid.length) {
+      feedback.textContent = `Use symbols from this alphabet: ${state.machine.alphabet.join(", ")}. Invalid: ${invalid.join(", ")}`;
+      feedback.className = "input-feedback error";
+      return false;
+    }
+    feedback.textContent = input.length
+      ? "Input looks good. Ready to run."
+      : "Empty input (ε)";
+    feedback.className = "input-feedback good";
+    return true;
+  }
+  /** Creates the runner matching the selected machine type. */
+  function createRunner() {
+    const input = $("#input-string").value;
+    state.runner =
+      state.mode === "tm"
+        ? E.createTuringRunner(state.machine, input)
+        : state.mode === "pda"
+          ? E.createPdaRunner(state.machine, input)
+          : E.createFiniteRunner(state.machine, input);
+  }
+  /** Stops playback and renders a fresh initial snapshot. */
+  function reset() {
+    stop();
+    if (!state.machine || !validInput()) return;
+    createRunner();
+    state.snapshot = state.runner.snapshot();
+    render(state.snapshot);
+  }
+  /** Starts timer-driven execution of the current runner. */
+  function startRun() {
+    if (!validInput()) return;
+    if (
+      !state.runner ||
+      !["ready", "running"].includes(state.runner.snapshot().status)
+    )
+      createRunner();
+    $("#run-button").disabled = true;
+    $("#pause-button").disabled = false;
+    tick();
+    if (
+      state.runner &&
+      ["ready", "running"].includes(state.runner.snapshot().status)
+    )
+      state.timer = setInterval(
+        tick,
+        1100 - (Number($("#speed-range").value) - 1) * 190,
+      );
+  }
+  /** Advances one step and renders the resulting snapshot. */
+  function tick() {
+    if (!state.runner) return;
+    const s = state.runner.step();
+    state.snapshot = s;
+    render(s);
+    if (!["ready", "running"].includes(s.status)) stop();
+  }
+  /** Stops timer-driven execution and restores the controls. */
+  function stop() {
+    if (state.timer) {
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+    $("#run-button").disabled = false;
+    $("#pause-button").disabled = true;
+  }
+  /** Advances exactly one step from the Step control. */
+  function manualStep() {
+    if (!validInput()) return;
+    if (
+      state.runner &&
+      !["ready", "running"].includes(state.runner.snapshot().status)
+    )
+      return;
+    if (!state.runner) createRunner();
+    tick();
+  }
+  /** Renders the current snapshot across the simulator panels. */
+  function render(s) {
+    $("#current-state").textContent =
+      state.mode === "dfa" ? s.active.join(" ∪ ") || "∅" : s.state;
+    $("#step-count").textContent = s.history.length;
+    $("#current-symbol").textContent = s.reading === "∅" ? "ε" : s.reading;
+    const status = $("#status-pill");
+    const names = {
+      ready: "Ready",
+      running: "Running",
+      accepted: "Accepted",
+      rejected: "Rejected",
+      halted: "Halted",
+    };
+    status.className = `status-pill ${s.status}`;
+    status.querySelector("span").textContent = names[s.status] || s.status;
+    const tape = $("#tape-view");
+    tape.className = `tape-view ${state.mode === "tm" ? "tm-tape" : ""}`;
+    if (state.mode === "tm") {
+      const vals = s.displayTape?.length ? s.displayTape : ["□"];
+      tape.innerHTML = vals
+        .map(
+          (v, i) =>
+            `<div class="tape-cell ${s.head === i ? "head-cell" : ""} ${v === "□" ? "blank-cell" : ""}">${escapeHtml(v)}</div>`,
+        )
+        .join("");
+      $("#pointer-label b").textContent = s.head;
+    } else {
+      const input = $("#input-string").value;
+      tape.innerHTML = input.length
+        ? [...input]
+            .map(
+              (v, i) =>
+                `<div class="tape-cell ${i === s.position ? "current-cell" : ""} ${i < s.position ? "consumed-cell" : ""}">${escapeHtml(v)}</div>`,
+            )
+            .join("")
+        : '<div class="epsilon-cell">ε <small>empty string</small></div>';
+      const pct = input.length
+        ? Math.min(96, Math.max(4, ((s.position + 0.5) / input.length) * 100))
+        : 50;
+      $("#input-pointer").style.left = `${pct}%`;
+      $(`#pointer-label b`).textContent = input.length
+        ? `${Math.min(s.position + 1, input.length)} / ${input.length}`
+        : "ε";
+    }
+    if (state.mode === "pda") {
+      const vals = [...s.stack].reverse();
+      $("#stack-view").innerHTML = vals.length
+        ? vals
+            .map(
+              (v, i) =>
+                `<div class="stack-cell ${i === 0 ? "stack-top" : ""}">${escapeHtml(v)}</div>`,
+            )
+            .join("")
+        : '<div class="stack-empty">empty stack</div>';
+      $("#stack-label").textContent =
+        `${s.stack.length} ${s.stack.length === 1 ? "item" : "items"}`;
+    }
+    $("#history-body").innerHTML = s.history.length
+      ? s.history
+          .map(
+            (h, i) =>
+              `<tr class="${i === s.history.length - 1 ? "new-row" : ""}"><td>${h.index}</td><td><span class="state-tag">${escapeHtml(h.state)}</span></td><td><span class="symbol-tag">${escapeHtml(h.symbol)}</span></td><td>${escapeHtml(h.transition)}</td><td>${escapeHtml(h.to)}</td></tr>`,
+          )
+          .join("")
+      : '<tr class="empty-row"><td colspan="5"><span class="empty-icon">⌁</span><br/>Your transition history will appear here.</td></tr>';
+    $("#log-count").textContent =
+      `${s.history.length} ${s.history.length === 1 ? "transition" : "transitions"}`;
+    const last = s.history.at(-1);
+    $("#transition-text").textContent = last
+      ? `${last.state} reads “${last.symbol}” → ${last.transition}; moves to ${last.to}.`
+      : state.mode === "dfa"
+        ? `Starting in ${s.active.join(", ") || "∅"}. ${s.reading === "ε" ? "The input is empty." : "Next symbol: " + s.reading + "."}`
+        : `Starting in ${s.state}. ${s.reading === "ε" ? "The input is empty." : "Next symbol: " + s.reading + "."}`;
+    $("#transition-banner").classList.toggle(
+      "hidden",
+      ["accepted", "rejected", "halted"].includes(s.status),
+    );
+    const result = $("#result-banner");
+    const outcomes = {
+      accepted: [
+        "success",
+        "✓",
+        "Accepted",
+        "The machine reached an accepting configuration.",
+      ],
+      rejected: [
+        "failure",
+        "×",
+        "Rejected",
+        "This input does not belong to the language.",
+      ],
+      halted: [
+        "warning",
+        "Ⅱ",
+        "Halted",
+        "No transition is defined for this state and symbol.",
+      ],
+    };
+    if (outcomes[s.status]) {
+      const [cls, icon, title, desc] = outcomes[s.status];
+      result.className = `result-banner ${cls}`;
+      result.innerHTML = `<span class="result-icon">${icon}</span><span><strong>${title}</strong><small>${desc}</small></span>`;
+    } else result.className = "result-banner hidden";
+    renderDiagram(s);
+  }
+  /** Draws the currently selected machine's state diagram. */
+  function renderDiagram(snapshot) {
+    const svg = $("#diagram-svg"),
+      m = state.machine;
+    if (!m) return;
+    const states = m.states,
+      n = states.length,
+      coords = states.map((_, i) => ({
+        x: n === 1 ? 320 : 80 + i * (480 / (n - 1)),
+        y: i % 2 === 0 ? 108 : 145,
+      }));
+    let markup =
+      '<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8b95a7"/></marker></defs>';
+    if (state.mode === "dfa" || state.mode === "pda") {
+      if (m.id === "ends-01") {
+        markup +=
+          '<path class="loop-edge" d="M51 85 C25 30 128 22 103 84"/><text class="edge-label" x="75" y="42">1</text><path class="loop-edge" d="M291 75 C268 28 370 27 347 75"/><text class="edge-label" x="320" y="41">0</text><path class="edge" d="M110 108 L260 108"/><text class="edge-label" x="185" y="97">0</text><path class="edge" d="M363 108 L505 108"/><text class="edge-label" x="431" y="97">1</text><path class="edge" d="M268 133 Q186 203 102 133"/><text class="edge-label" x="183" y="184">1</text><path class="edge" d="M506 134 Q422 207 355 132"/><text class="edge-label" x="434" y="184">0</text>';
+      } else if (m.id === "even-ones") {
+        markup +=
+          '<path class="loop-edge" d="M63 87 C38 27 148 27 123 87"/><text class="edge-label" x="94" y="40">0</text><path class="loop-edge" d="M516 87 C491 27 601 27 576 87"/><text class="edge-label" x="547" y="40">0</text><path class="edge" d="M140 113 L492 113"/><text class="edge-label" x="309" y="100">1</text><path class="edge" d="M492 134 L140 134"/><text class="edge-label" x="309" y="157">1</text>';
+      } else {
+        states.forEach((s, i) => {
+          const p = coords[i];
+          markup += `<path class="edge" d="M${p.x + 28} ${p.y + 1} L${coords[(i + 1) % n].x - 28} ${coords[(i + 1) % n].y + 1}"/><text class="edge-label" x="${(p.x + coords[(i + 1) % n].x) / 2}" y="${(p.y + coords[(i + 1) % n].y) / 2 - 12}">transition</text>`;
+        });
+      }
+    } else {
+      states.forEach((s, i) => {
+        const p = coords[i];
+        if (i < n - 1) {
+          markup += `<path class="edge" d="M${p.x + 29} ${p.y} L${coords[i + 1].x - 30} ${coords[i + 1].y}"/><text class="edge-label" x="${(p.x + coords[i + 1].x) / 2}" y="${(p.y + coords[i + 1].y) / 2 - 14}">read / write, move</text>`;
+        }
+      });
+    }
+    states.forEach((s, i) => {
+      const p = coords[i],
+        accept = m.accepts.includes(s),
+        active =
+          snapshot &&
+          (snapshot.active
+            ? snapshot.active.includes(s)
+            : snapshot.state === s);
+      markup += `<g class="state-node ${accept ? "accept-node" : ""} ${s === m.start ? "start-node" : ""} ${active ? "active-node" : ""}"><circle cx="${p.x}" cy="${p.y}" r="27"/><text x="${p.x}" y="${p.y + 4}">${escapeHtml(s)}</text>${accept ? `<circle class="inner-circle" cx="${p.x}" cy="${p.y}" r="21"/>` : ""}</g>`;
+      if (s === m.start)
+        markup += `<path class="start-arrow" d="M${p.x - 57} ${p.y} L${p.x - 30} ${p.y}"/>`;
+    });
+    svg.innerHTML = markup;
+  }
+  /** Renders machine cards for the active mode. */
+  function renderLibrary() {
+    const grid = $("#library-grid");
+    grid.innerHTML = E.definitions[state.mode]
+      .map(
+        (m) =>
+          `<button class="card library-card" data-machine="${m.id}"><span class="library-kind">${m.kind}</span><h2>${escapeHtml(m.name)}</h2><p>${escapeHtml(m.description)}</p><span class="library-example">EXAMPLE <b>${escapeHtml(m.example || "ε")}</b></span><span class="library-arrow">↗</span></button>`,
+      )
+      .join("");
+    grid.querySelectorAll("[data-machine]").forEach((b) =>
+      b.addEventListener("click", () => {
+        $('.nav-item[data-view="simulator"]').click();
+        loadMachine(b.dataset.machine);
+      }),
+    );
+  }
+  /** Switches machine mode and loads its first definition. */
+  function setMode(mode) {
+    state.mode = mode;
+    $$(".mode-tab").forEach((b) =>
+      b.classList.toggle("selected", b.dataset.mode === mode),
+    );
+    loadMachine(list()[0].id);
+  }
+  $$(".mode-tab").forEach((b) =>
+    b.addEventListener("click", () => setMode(b.dataset.mode)),
+  );
+  $("#machine-select").addEventListener("change", (e) =>
+    loadMachine(e.target.value),
+  );
+  $("#input-string").addEventListener("input", () => {
+    const valid = validInput();
+    if (valid && state.runner) reset();
+    else if (!valid) {
+      stop();
+      state.runner = null;
+    }
+  });
+  $("#run-button").addEventListener("click", startRun);
+  $("#step-button").addEventListener("click", manualStep);
+  $("#pause-button").addEventListener("click", stop);
+  $("#reset-button").addEventListener("click", reset);
+  $("#example-button").addEventListener("click", () => {
+    $("#input-string").value = state.machine.example;
+    reset();
+  });
+  $("#speed-range").addEventListener(
+    "input",
+    (e) =>
+      ($("#speed-value").textContent = speedNames[Number(e.target.value) - 1]),
+  );
+  $("#clear-log").addEventListener("click", () => reset());
+  $("#fit-diagram").addEventListener("click", () =>
+    $("#diagram-canvas").classList.toggle("expanded"),
+  );
+  $("#machine-info").addEventListener("click", () => {
+    $('.nav-item[data-view="guide"]').click();
+  });
+  $$(".nav-item").forEach((b) =>
+    b.addEventListener("click", () => {
+      const view = b.dataset.view;
+      $$(".nav-item").forEach((x) => x.classList.toggle("active", x === b));
+      ["simulator", "machines", "guide"].forEach((v) =>
+        $("#view-" + v).classList.toggle("hidden", v !== view),
+      );
+      $("#crumb-current").textContent =
+        view === "simulator"
+          ? "Simulator"
+          : view === "machines"
+            ? "Machine library"
+            : "Quick guide";
+      if (view === "machines") renderLibrary();
+    }),
+  );
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      startRun();
+    }
+    if (e.key === "Escape") stop();
+  });
   loadMachine(list()[0].id);
 })();
