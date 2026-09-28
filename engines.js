@@ -134,41 +134,104 @@
         name: "Balanced parentheses",
         kind: "PDA",
         description:
-          "Accepts properly balanced strings of parentheses using a stack.",
+          "Accepts properly balanced strings of parentheses using a stack. The final state is reached by an epsilon transition when the input ends with only the bottom marker remaining.",
         alphabet: ["(", ")"],
         states: ["q", "accept"],
         start: "q",
         accepts: ["accept"],
+        acceptBy: "finalState",
         example: "(()())",
         transitions: {
           q: {
             "(": { any: { push: "(", next: "q" } },
             ")": { "(": { pop: true, next: "q" } },
+            ε: { "Z₀": { next: "accept" } },
           },
         },
         notes:
-          "Each opening parenthesis is pushed. A closing parenthesis must pop one. The input is accepted only when it ends with an empty stack.",
+          "Each opening parenthesis is pushed, and each closing parenthesis must pop one. An epsilon move enters the accept state only when the stack has returned to its bottom marker after all input is consumed.",
       },
       {
         id: "pda-anbn",
         name: "Language aⁿbⁿ",
         kind: "PDA",
         description:
-          "Accepts aⁿbⁿ (including ε): push one marker per a, then pop one per b.",
+          "Accepts aⁿbⁿ, including ε, by pushing one marker per a and popping one per b. An epsilon transition reaches the final state with only the bottom marker remaining.",
         alphabet: ["a", "b"],
         states: ["push", "pop", "accept"],
         start: "push",
         accepts: ["accept"],
+        acceptBy: "finalState",
         example: "aaabbb",
         transitions: {
           push: {
             a: { any: { push: "A", next: "push" } },
             b: { A: { pop: true, next: "pop" } },
+            ε: { "Z₀": { next: "accept" } },
           },
-          pop: { b: { A: { pop: true, next: "pop" } } },
+          pop: {
+            b: { A: { pop: true, next: "pop" } },
+            ε: { "Z₀": { next: "accept" } },
+          },
         },
         notes:
-          "The stack counts the a symbols. The first b switches to matching mode; each b removes one marker.",
+          "The stack counts the a symbols. The first b switches to matching mode; each b removes one marker. Only after the input is consumed can the bottom-marker epsilon transition accept.",
+      },
+      {
+        id: "pda-even-palindrome",
+        name: "Even palindromes",
+        kind: "PDA",
+        description:
+          "Accepts even-length palindromes wwᴿ over {a,b}. The nondeterministic PDA guesses the midpoint with an epsilon transition, then matches and pops the first half in reverse.",
+        alphabet: ["a", "b"],
+        states: ["push", "match", "accept"],
+        start: "push",
+        accepts: ["accept"],
+        acceptBy: "finalState",
+        example: "abba",
+        transitions: {
+          push: {
+            a: { any: { push: "a", next: "push" } },
+            b: { any: { push: "b", next: "push" } },
+            ε: { any: { next: "match" } },
+          },
+          match: {
+            a: { a: { pop: true, next: "match" } },
+            b: { b: { pop: true, next: "match" } },
+            ε: { "Z₀": { next: "accept" } },
+          },
+        },
+        notes:
+          "The push state stores a guessed first half. An epsilon branch guesses the midpoint at every position; the match state consumes the reverse half while popping equal symbols. Acceptance requires the entire input and bottom marker.",
+      },
+      {
+        id: "pda-equal-ab",
+        name: "Equal number of a and b",
+        kind: "PDA",
+        description:
+          "Accepts strings over {a,b} with equal counts in any order. The stack cancels each symbol against an unmatched symbol of the opposite kind.",
+        alphabet: ["a", "b"],
+        states: ["q"],
+        start: "q",
+        accepts: [],
+        acceptBy: "emptyStack",
+        example: "abba",
+        transitions: {
+          q: {
+            a: {
+              "Z₀": { push: "A", next: "q" },
+              A: { push: "A", next: "q" },
+              B: { pop: true, next: "q" },
+            },
+            b: {
+              "Z₀": { push: "B", next: "q" },
+              B: { push: "B", next: "q" },
+              A: { pop: true, next: "q" },
+            },
+          },
+        },
+        notes:
+          "An a cancels an unmatched B or pushes A; a b cancels an unmatched A or pushes B. Equal counts leave only Z₀, the required empty-stack acceptance condition.",
       },
     ],
   };
@@ -273,20 +336,28 @@
     const blank = machine.blank ?? "□";
 
     if (!states.has(machine.start)) {
-      throw new Error(`Turing machine start state "${machine.start}" does not exist.`);
+      throw new Error(
+        `Turing machine start state "${machine.start}" does not exist.`,
+      );
     }
     for (const state of accepts) {
       if (!states.has(state)) {
-        throw new Error(`Turing machine accept state "${state}" does not exist.`);
+        throw new Error(
+          `Turing machine accept state "${state}" does not exist.`,
+        );
       }
     }
     for (const state of rejects) {
       if (!states.has(state)) {
-        throw new Error(`Turing machine reject state "${state}" does not exist.`);
+        throw new Error(
+          `Turing machine reject state "${state}" does not exist.`,
+        );
       }
     }
     if (!tapeAlphabet.has(blank)) {
-      throw new Error(`Turing machine blank symbol "${blank}" is not in tapeAlphabet.`);
+      throw new Error(
+        `Turing machine blank symbol "${blank}" is not in tapeAlphabet.`,
+      );
     }
     for (const symbol of alphabet) {
       if (!tapeAlphabet.has(symbol)) {
@@ -302,22 +373,32 @@
           throw new Error(`Read symbol "${symbol}" is not in tapeAlphabet.`);
         }
         if (!rule || typeof rule !== "object") {
-          throw new Error(`Transition for (${from}, ${symbol}) must be a rule object.`);
+          throw new Error(
+            `Transition for (${from}, ${symbol}) must be a rule object.`,
+          );
         }
         if (!tapeAlphabet.has(rule.write)) {
-          throw new Error(`Written symbol "${rule.write}" is not in tapeAlphabet.`);
+          throw new Error(
+            `Written symbol "${rule.write}" is not in tapeAlphabet.`,
+          );
         }
         if (!["L", "R", "S"].includes(rule.move)) {
-          throw new Error(`Invalid move "${rule.move}" for (${from}, ${symbol}); expected L, R, or S.`);
+          throw new Error(
+            `Invalid move "${rule.move}" for (${from}, ${symbol}); expected L, R, or S.`,
+          );
         }
         if (!states.has(rule.next)) {
-          throw new Error(`Next state "${rule.next}" for (${from}, ${symbol}) does not exist.`);
+          throw new Error(
+            `Next state "${rule.next}" for (${from}, ${symbol}) does not exist.`,
+          );
         }
       }
     }
     for (const symbol of input) {
       if (!alphabet.has(symbol)) {
-        throw new Error(`Input symbol "${symbol}" is not in the machine alphabet.`);
+        throw new Error(
+          `Input symbol "${symbol}" is not in the machine alphabet.`,
+        );
       }
     }
 
@@ -377,7 +458,8 @@
       const before = state;
       const headBefore = head;
       tape[head] = rule.write;
-      const nextHead = head + (rule.move === "L" ? -1 : rule.move === "R" ? 1 : 0);
+      const nextHead =
+        head + (rule.move === "L" ? -1 : rule.move === "R" ? 1 : 0);
       if (nextHead < 0) {
         tape.unshift(blank);
         head = 0;
@@ -411,7 +493,9 @@
       /** Runs until termination or the requested transition limit. */
       run(maxSteps = 10000) {
         if (!Number.isInteger(maxSteps) || maxSteps < 0) {
-          throw new Error("Turing run maxSteps must be a non-negative integer.");
+          throw new Error(
+            "Turing run maxSteps must be a non-negative integer.",
+          );
         }
         let runSteps = 0;
         while (["ready", "running"].includes(status) && runSteps < maxSteps) {
@@ -440,77 +524,245 @@
   }
   /** Creates a stepwise pushdown-automaton runner for one input string. */
   function createPdaRunner(machine, input) {
-    let pos = 0,
-      state = machine.start,
-      stack = ["Z₀"],
-      history = [],
-      status = "ready";
-    /** Returns a detached view of the current stack configuration. */
-    const snap = () => ({
-      position: pos,
-      state,
-      stack: [...stack],
-      history: [...history],
-      status,
-      reading: input[pos] ?? "ε",
-    });
-    /** Applies one matching stack transition. */
+    const configurationLimit = 5000;
+    if (!machine || !Array.isArray(machine.states)) {
+      throw new Error("PDA states must be an array.");
+    }
+    if (typeof input !== "string") {
+      throw new Error("PDA input must be a string.");
+    }
+
+    const states = new Set(machine.states);
+    const alphabet = new Set(machine.alphabet || []);
+    const accepts = machine.accepts || [];
+    const acceptBy = machine.acceptBy || "either";
+    const transitions = machine.transitions || {};
+    if (!states.has(machine.start)) {
+      throw new Error(`PDA start state "${machine.start}" does not exist.`);
+    }
+    if (!["finalState", "emptyStack", "either"].includes(acceptBy)) {
+      throw new Error(`Invalid PDA acceptBy mode "${acceptBy}".`);
+    }
+    for (const state of accepts) {
+      if (!states.has(state)) {
+        throw new Error(`PDA accept state "${state}" does not exist.`);
+      }
+    }
+    for (const symbol of input) {
+      if (!alphabet.has(symbol)) {
+        throw new Error(`Input symbol "${symbol}" is not in the PDA alphabet.`);
+      }
+    }
+    for (const [from, byInput] of Object.entries(transitions)) {
+      if (!states.has(from)) {
+        throw new Error(`PDA transition state "${from}" does not exist.`);
+      }
+      for (const [symbol, byTop] of Object.entries(byInput)) {
+        if (symbol !== EPSILON && !alphabet.has(symbol)) {
+          throw new Error(
+            `PDA transition input "${symbol}" is not in the alphabet.`,
+          );
+        }
+        for (const [top, configuredRules] of Object.entries(byTop)) {
+          const rules = Array.isArray(configuredRules)
+            ? configuredRules
+            : [configuredRules];
+          for (const rule of rules) {
+            if (!rule || typeof rule !== "object") {
+              throw new Error(
+                `PDA transition for (${from}, ${symbol}, ${top}) must be a rule object.`,
+              );
+            }
+            if (!states.has(rule.next)) {
+              throw new Error(
+                `PDA next state "${rule.next}" for (${from}, ${symbol}, ${top}) does not exist.`,
+              );
+            }
+            if (
+              rule.push !== undefined &&
+              typeof rule.push !== "string" &&
+              !Array.isArray(rule.push)
+            ) {
+              throw new Error(
+                `PDA push for (${from}, ${symbol}, ${top}) must be a string or array.`,
+              );
+            }
+            if (
+              Array.isArray(rule.push) &&
+              rule.push.some((value) => typeof value !== "string")
+            ) {
+              throw new Error(
+                `PDA push array for (${from}, ${symbol}, ${top}) must contain strings.`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    const initial = { state: machine.start, position: 0, stack: ["Z₀"] };
+    let configurations = [initial];
+    let lastConfiguration = initial;
+    let acceptingConfiguration = null;
+    let history = [];
+    let status = "ready";
+    let reason = null;
+    let visited = new Set([configurationKey(initial)]);
+
+    /** Creates a stable key for visited-configuration detection. */
+    function configurationKey(configuration) {
+      return JSON.stringify([
+        configuration.state,
+        configuration.position,
+        configuration.stack,
+      ]);
+    }
+    /** Returns whether a fully consumed configuration satisfies acceptBy. */
+    function isAccepting(configuration) {
+      if (configuration.position !== input.length) return false;
+      const finalState = accepts.includes(configuration.state);
+      const emptyStack =
+        configuration.stack.length === 1 && configuration.stack[0] === "Z₀";
+      return acceptBy === "finalState"
+        ? finalState
+        : acceptBy === "emptyStack"
+          ? emptyStack
+          : finalState || emptyStack;
+    }
+    /** Returns the accepting branch or the first available branch. */
+    const selectedConfiguration = () =>
+      acceptingConfiguration || configurations[0] || lastConfiguration;
+    /** Returns a detached view of the current nondeterministic frontier. */
+    const snap = () => {
+      const selected = selectedConfiguration();
+      return {
+        position: selected.position,
+        state: selected.state,
+        stack: [...selected.stack],
+        history: history.map((entry) => ({ ...entry })),
+        status,
+        reading: input[selected.position] ?? (input.length === 0 ? "ε" : "end"),
+        branches: configurations.length,
+        acceptBy,
+        reason,
+      };
+    };
+    /** Applies one breadth-first transition layer to every live branch. */
     function step() {
       if (!["ready", "running"].includes(status)) return snap();
-      if (pos >= input.length) {
-        status =
-          machine.accepts.includes(state) ||
-          (stack.length === 1 && stack[0] === "Z₀")
-            ? "accepted"
-            : "rejected";
-        if (machine.accepts.includes(state)) status = "accepted";
+      const alreadyAccepting = configurations.find(isAccepting);
+      if (alreadyAccepting) {
+        acceptingConfiguration = alreadyAccepting;
+        status = "accepted";
         return snap();
       }
-      const symbol = input[pos],
-        top = stack[stack.length - 1],
-        before = state;
-      let rule =
-        machine.transitions[state]?.[symbol]?.[top] ||
-        machine.transitions[state]?.[symbol]?.any;
-      if (!rule) {
+
+      const nextConfigurations = [];
+      let limitReached = false;
+      for (const configuration of configurations) {
+        const byInput = transitions[configuration.state] || {};
+        const inputSymbols = [];
+        if (configuration.position < input.length) {
+          inputSymbols.push(input[configuration.position]);
+        }
+        inputSymbols.push(EPSILON);
+
+        for (const symbol of inputSymbols) {
+          const byTop = byInput[symbol];
+          if (!byTop) continue;
+          const top = configuration.stack.at(-1);
+          const matchingRules = [];
+          if (Object.hasOwn(byTop, top)) {
+            matchingRules.push(byTop[top]);
+          }
+          if (Object.hasOwn(byTop, "any")) {
+            matchingRules.push(byTop.any);
+          }
+
+          for (const configuredRules of matchingRules) {
+            const rules = Array.isArray(configuredRules)
+              ? configuredRules
+              : [configuredRules];
+            for (const rule of rules) {
+              const nextStack = [...configuration.stack];
+              if (rule.pop) nextStack.pop();
+              if (Array.isArray(rule.push)) nextStack.push(...rule.push);
+              else if (typeof rule.push === "string") nextStack.push(rule.push);
+              const nextConfiguration = {
+                state: rule.next,
+                position: configuration.position + (symbol === EPSILON ? 0 : 1),
+                stack: nextStack,
+              };
+              const key = configurationKey(nextConfiguration);
+              if (visited.has(key)) continue;
+              if (visited.size >= configurationLimit) {
+                limitReached = true;
+                break;
+              }
+              visited.add(key);
+              nextConfigurations.push(nextConfiguration);
+              const action = rule.pop
+                ? `pop ${top ?? "∅"}`
+                : rule.push !== undefined
+                  ? `push ${Array.isArray(rule.push) ? rule.push.join(" ") : rule.push}`
+                  : "no stack change";
+              history.push({
+                index: history.length + 1,
+                state: configuration.state,
+                symbol,
+                transition: `${symbol}, ${top ?? "∅"} → ${action}`,
+                to: rule.next,
+                stackTop: top,
+                positionBefore: configuration.position,
+                positionAfter: nextConfiguration.position,
+              });
+              if (isAccepting(nextConfiguration)) {
+                acceptingConfiguration = nextConfiguration;
+              }
+            }
+            if (limitReached) break;
+          }
+          if (limitReached) break;
+        }
+        if (limitReached) break;
+      }
+
+      if (nextConfigurations.length) {
+        configurations = nextConfigurations;
+        lastConfiguration = nextConfigurations[0];
+      } else if (configurations.length) {
+        lastConfiguration = configurations[0];
+        configurations = [];
+      }
+      if (acceptingConfiguration) {
+        status = "accepted";
+      } else if (limitReached) {
+        status = "halted";
+        reason = "configuration limit exceeded";
+      } else if (!configurations.length) {
         status = "rejected";
-        return snap();
+      } else {
+        status = "running";
       }
-      if (rule.pop) stack.pop();
-      if (rule.push) stack.push(rule.push);
-      state = rule.next;
-      pos++;
-      history.push({
-        index: history.length + 1,
-        state: before,
-        symbol,
-        transition: `${symbol}, ${top} → ${rule.pop ? "pop" : rule.push ? "push " + rule.push : "no stack change"}`,
-        to: state,
-      });
-      status =
-        pos === input.length
-          ? machine.accepts.includes(state) ||
-            (stack.length === 1 && stack[0] === "Z₀")
-            ? "accepted"
-            : "rejected"
-          : "running";
       return snap();
     }
     return {
       step,
       snapshot: snap,
-      /** Runs until the PDA accepts or rejects. */
+      /** Runs until a branch accepts, all branches reject, or the cap is reached. */
       run() {
-        while (status === "ready" || status === "running") step();
+        while (["ready", "running"].includes(status)) step();
         return snap();
       },
-      /** Restores the initial stack and clears the execution history. */
+      /** Restores the initial configuration and clears all explored branches. */
       reset() {
-        pos = 0;
-        state = machine.start;
-        stack = ["Z₀"];
+        configurations = [initial];
+        lastConfiguration = initial;
+        acceptingConfiguration = null;
         history = [];
         status = "ready";
+        reason = null;
+        visited = new Set([configurationKey(initial)]);
         return snap();
       },
     };
