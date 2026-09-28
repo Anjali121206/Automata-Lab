@@ -95,6 +95,49 @@ check(
     }
   },
 );
+check(
+  "diagram layout is left-to-right with upper loops and opposite reciprocal curves",
+  () => {
+    for (const machines of Object.values(E.definitions)) {
+      for (const machine of machines) {
+        const model = UI.buildDiagramModel(machine);
+        const layout = UI.buildDiagramLayout(machine, model);
+        const xPositions = layout.coordinates.map((point) => point.x);
+        const rowY = layout.coordinates[0]?.y;
+        assert.equal(layout.nodes[0]?.state, machine.start, machine.id);
+        assert.ok(
+          layout.coordinates.every((point) => point.y === rowY),
+          machine.id,
+        );
+        assert.ok(
+          xPositions.every(
+            (x, index) => index === 0 || x > xPositions[index - 1],
+          ),
+          machine.id,
+        );
+        for (const route of layout.edgeRoutes.filter((edge) => edge.selfLoop)) {
+          assert.equal(route.loopSide, -1, `${machine.id}:${route.from}`);
+        }
+        for (const route of layout.edgeRoutes) {
+          if (route.selfLoop) continue;
+          const reverse = layout.edgeRoutes.find(
+            (edge) =>
+              !edge.selfLoop &&
+              edge.from === route.to &&
+              edge.to === route.from,
+          );
+          if (!reverse) continue;
+          assert.ok(route.curved, `${machine.id}:${route.from}->${route.to}`);
+          assert.notEqual(
+            route.curveSide,
+            reverse.curveSide,
+            `${machine.id}:${route.from}<->${route.to}`,
+          );
+        }
+      }
+    }
+  },
+);
 check("every bundled transition table contains one entry per rule", () => {
   for (const machines of Object.values(E.definitions)) {
     for (const machine of machines) {

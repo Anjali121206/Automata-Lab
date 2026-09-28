@@ -75,6 +75,57 @@
     };
   }
 
+  /** Places machine states in a row and assigns textbook-style edge routes. */
+  function buildDiagramLayout(machine, model = buildDiagramModel(machine)) {
+    const nodes = [...model.nodes].sort(
+      (left, right) => Number(right.start) - Number(left.start),
+    );
+    const margin = 110;
+    const spacing = 170;
+    const width = Math.max(420, margin * 2 + (nodes.length - 1) * spacing);
+    const height = 360;
+    const centerY = height / 2;
+    const coordinates = nodes.map((node, index) => ({
+      state: node.state,
+      x: nodes.length === 1 ? width / 2 : margin + index * spacing,
+      y: centerY,
+    }));
+    const stateIndexes = new Map(
+      nodes.map((node, index) => [node.state, index]),
+    );
+    const edgeRoutes = model.edges.map((edge) => {
+      const fromIndex = stateIndexes.get(edge.from);
+      const toIndex = stateIndexes.get(edge.to);
+      const span = Math.abs(toIndex - fromIndex);
+      const selfLoop = fromIndex === toIndex;
+      const reciprocal =
+        !selfLoop &&
+        model.edges.some(
+          (other) => other.from === edge.to && other.to === edge.from,
+        );
+      const curved =
+        !selfLoop && (reciprocal || span > 1 || fromIndex > toIndex);
+      const curveSide = reciprocal ? (fromIndex < toIndex ? -1 : 1) : 1;
+      const bend = !curved
+        ? 0
+        : reciprocal
+          ? Math.min(96, 46 + Math.max(0, span - 1) * 14)
+          : span > 1
+            ? Math.min(150, 124 + Math.max(0, span - 2) * 12)
+            : 46;
+      return {
+        from: edge.from,
+        to: edge.to,
+        selfLoop,
+        loopSide: selfLoop ? -1 : 0,
+        curved,
+        curveSide,
+        bend,
+      };
+    });
+    return { nodes, coordinates, edgeRoutes, width, height };
+  }
+
   /** Builds a transition table model for finite, Turing, or pushdown machines. */
   function buildTransitionTable(machine) {
     if (machine.kind === "PDA") {
@@ -192,6 +243,7 @@
 
   const publicApi = {
     buildDiagramModel,
+    buildDiagramLayout,
     buildTransitionTable,
     validateInput,
     speedToDelay,
@@ -513,24 +565,15 @@
     const machine = state.machine;
     if (!machine) return;
     const model = buildDiagramModel(machine);
-    const count = model.nodes.length;
-    const radius = count < 3 ? 112 : Math.max(112, count * 24);
-    const width = Math.max(380, radius * 2 + 170);
-    const height = Math.max(250, radius * 2 + 120);
-    const center = { x: width / 2, y: height / 2 };
+    const layout = buildDiagramLayout(machine, model);
     const coordinates = new Map(
-      model.nodes.map((node, index) => {
-        const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
-        return [
-          node.state,
-          count === 1
-            ? center
-            : {
-                x: center.x + radius * Math.cos(angle),
-                y: center.y + radius * Math.sin(angle),
-              },
-        ];
-      }),
+      layout.coordinates.map((point) => [point.state, point]),
+    );
+    const edgeRoutes = new Map(
+      layout.edgeRoutes.map((route) => [
+        `${route.from}\u0000${route.to}`,
+        route,
+      ]),
     );
     const activeStates = new Set(
       snapshot?.activeStates ||
@@ -538,20 +581,12 @@
         (snapshot?.state ? [snapshot.state] : []),
     );
     const last = snapshot?.history?.at(-1);
-    const bidirectional = new Set(
-      model.edges
-        .filter((edge) =>
-          model.edges.some(
-            (other) => other.from === edge.to && other.to === edge.from,
-          ),
-        )
-        .map((edge) => `${edge.from}\u0000${edge.to}`),
-    );
     let markup =
       '<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8b95a7"/></marker></defs>';
     for (const edge of model.edges) {
       const from = coordinates.get(edge.from);
       const to = coordinates.get(edge.to);
+      const route = edgeRoutes.get(`${edge.from}\u0000${edge.to}`);
       const edgeActive = edge.transitions.some((transition) => {
         if (!last) return false;
         if (last.edges) {
@@ -582,9 +617,9 @@
         );
       });
       const edgeClass = edgeActive ? "edge active-edge" : "edge";
-      if (edge.from === edge.to) {
-        markup += `<path class="loop-edge ${edgeActive ? "active-edge" : ""}" d="M${from.x - 18} ${from.y - 24} C${from.x - 66} ${from.y - 94} ${from.x + 66} ${from.y - 94} ${from.x + 18} ${from.y - 24}"/>`;
-        markup += `<text class="edge-label ${edgeActive ? "active-edge-label" : ""}" x="${from.x}" y="${from.y - 73}">${escapeHtml(edge.label)}</text>`;
+      if (route.selfLoop) {
+        markup += `<path class="loop-edge ${edgeActive ? "active-edge" : ""}" d="M${from.x - 19} ${from.y - 24} C${from.x - 62} ${from.y - 105} ${from.x + 62} ${from.y - 105} ${from.x + 19} ${from.y - 24}"/>`;
+        markup += `<text class="edge-label ${edgeActive ? "active-edge-label" : ""}" x="${from.x}" y="${from.y - 82}">${escapeHtml(edge.label)}</text>`;
         continue;
       }
       const dx = to.x - from.x;
@@ -594,19 +629,18 @@
       const unitY = dy / distance;
       const start = { x: from.x + unitX * 29, y: from.y + unitY * 29 };
       const end = { x: to.x - unitX * 35, y: to.y - unitY * 35 };
-      const isCurved = bidirectional.has(`${edge.from}\u0000${edge.to}`);
-      const bend = isCurved ? 32 : 0;
+      const bend = route.bend;
       const control = {
         x: (start.x + end.x) / 2 - unitY * bend,
-        y: (start.y + end.y) / 2 + unitX * bend,
+        y: (start.y + end.y) / 2 + bend * route.curveSide,
       };
-      const path = isCurved
+      const path = route.curved
         ? `M${start.x} ${start.y} Q${control.x} ${control.y} ${end.x} ${end.y}`
         : `M${start.x} ${start.y} L${end.x} ${end.y}`;
-      const labelX = isCurved
+      const labelX = route.curved
         ? (start.x + 2 * control.x + end.x) / 4
         : (start.x + end.x) / 2;
-      const labelY = isCurved
+      const labelY = route.curved
         ? (start.y + 2 * control.y + end.y) / 4 - 7
         : (start.y + end.y) / 2 - 9;
       markup += `<path class="${edgeClass}" d="${path}"/>`;
@@ -628,8 +662,10 @@
         markup += `<path class="start-arrow" d="M${point.x - 58} ${point.y} L${point.x - 31} ${point.y}"/>`;
       }
     }
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("viewBox", `0 0 ${layout.width} ${layout.height}`);
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.style.width = `${layout.width}px`;
+    svg.style.height = `${layout.height}px`;
     svg.innerHTML = markup;
   }
   /** Renders all transition rules and highlights the last-used row or cell. */
@@ -677,14 +713,14 @@
                   rule.move === last.move
                 );
               }
-                if (last.edges) {
-                  return last.edges.some(
-                    (edge) =>
-                      edge.from === row.state &&
-                      edge.to === rule.to &&
-                      edge.symbol === symbol,
-                  );
-                }
+              if (last.edges) {
+                return last.edges.some(
+                  (edge) =>
+                    edge.from === row.state &&
+                    edge.to === rule.to &&
+                    edge.symbol === symbol,
+                );
+              }
               return toStates.has(rule.to);
             }),
           );

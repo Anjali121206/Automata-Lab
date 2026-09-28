@@ -585,16 +585,19 @@ body {
   border-radius: 50%;
 }
 .diagram-canvas {
-  height: 218px;
-  overflow: hidden;
+  height: 360px;
+  overflow-x: auto;
+  overflow-y: hidden;
   transition: height 0.2s;
 }
 .diagram-canvas.expanded {
-  height: 320px;
+  height: 420px;
 }
 .diagram-canvas svg {
   height: 100%;
-  width: 100%;
+  width: auto;
+  min-width: 100%;
+  display: block;
   overflow: visible;
 }
 .diagram-canvas text {
