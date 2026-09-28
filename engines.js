@@ -15,6 +15,12 @@
         start: "q₀",
         accepts: ["q₂"],
         example: "1101",
+        examples: [
+          { input: "1101", expected: "accept" },
+          { input: "1110", expected: "reject" },
+          { input: "01", expected: "accept" },
+          { input: "", expected: "reject" },
+        ],
         transitions: {
           "q₀": { 0: "q₁", 1: "q₀" },
           "q₁": { 0: "q₁", 1: "q₂" },
@@ -33,6 +39,12 @@
         start: "Even",
         accepts: ["Even"],
         example: "1010",
+        examples: [
+          { input: "1010", expected: "accept" },
+          { input: "111", expected: "reject" },
+          { input: "", expected: "accept" },
+          { input: "0", expected: "accept" },
+        ],
         transitions: {
           Even: { 0: "Even", 1: "Odd" },
           Odd: { 0: "Odd", 1: "Even" },
@@ -50,6 +62,12 @@
         start: "q₀",
         accepts: ["q₃"],
         example: "11010",
+        examples: [
+          { input: "11010", expected: "accept" },
+          { input: "1111", expected: "reject" },
+          { input: "010", expected: "accept" },
+          { input: "0", expected: "reject" },
+        ],
         transitions: {
           "q₀": { 0: ["q₀", "q₁"], 1: ["q₀"] },
           "q₁": { 1: ["q₂"] },
@@ -70,6 +88,12 @@
         start: "s",
         accepts: ["F₀", "F₁"],
         example: "101",
+        examples: [
+          { input: "101", expected: "accept" },
+          { input: "", expected: "reject" },
+          { input: "0", expected: "accept" },
+          { input: "11", expected: "accept" },
+        ],
         transitions: {
           s: { ε: ["a", "b"] },
           a: { 0: ["a", "F₀"], 1: ["a"] },
@@ -361,6 +385,12 @@
         accepts: ["accept"],
         acceptBy: "finalState",
         example: "(()())",
+        examples: [
+          { input: "(()())", expected: "accept" },
+          { input: "(()", expected: "reject" },
+          { input: "", expected: "accept" },
+          { input: "())", expected: "reject" },
+        ],
         transitions: {
           q: {
             "(": { any: { push: "(", next: "q" } },
@@ -383,6 +413,12 @@
         accepts: ["accept"],
         acceptBy: "finalState",
         example: "aaabbb",
+        examples: [
+          { input: "aaabbb", expected: "accept" },
+          { input: "aabbb", expected: "reject" },
+          { input: "", expected: "accept" },
+          { input: "abb", expected: "reject" },
+        ],
         transitions: {
           push: {
             a: { any: { push: "A", next: "push" } },
@@ -409,6 +445,12 @@
         accepts: ["accept"],
         acceptBy: "finalState",
         example: "abba",
+        examples: [
+          { input: "abba", expected: "accept" },
+          { input: "ab", expected: "reject" },
+          { input: "", expected: "accept" },
+          { input: "aba", expected: "reject" },
+        ],
         transitions: {
           push: {
             a: { any: { push: "a", next: "push" } },
@@ -436,6 +478,12 @@
         accepts: [],
         acceptBy: "emptyStack",
         example: "abba",
+        examples: [
+          { input: "abba", expected: "accept" },
+          { input: "aab", expected: "reject" },
+          { input: "", expected: "accept" },
+          { input: "ab", expected: "accept" },
+        ],
         transitions: {
           q: {
             a: {
@@ -497,11 +545,15 @@
       }
       const symbol = input[position],
         before = [...active],
-        next = new Set();
+        next = new Set(),
+        edges = [];
       for (const state of active) {
         const dest = machine.transitions[state]?.[symbol];
         if (dest)
-          for (const d of Array.isArray(dest) ? dest : [dest]) next.add(d);
+          for (const d of Array.isArray(dest) ? dest : [dest]) {
+            next.add(d);
+            edges.push({ from: state, to: d, symbol });
+          }
       }
       active = closure(machine, next);
       history.push({
@@ -510,6 +562,7 @@
         symbol,
         transition: `${before.join(", ") || "∅"} —${symbol}→ ${[...active].join(", ") || "∅"}`,
         to: [...active].join(", ") || "∅",
+        edges,
       });
       position++;
       status = "running";
@@ -863,6 +916,16 @@
         status,
         reading: input[selected.position] ?? (input.length === 0 ? "ε" : "end"),
         branches: configurations.length,
+        activeStates: [
+          ...new Set(
+            (configurations.length
+              ? configurations
+              : acceptingConfiguration
+                ? [acceptingConfiguration]
+                : []
+            ).map((configuration) => configuration.state),
+          ),
+        ],
         acceptBy,
         reason,
       };

@@ -1,64 +1,371 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f4f5f7" />
-  <title>Automata Lab — Theory of Computation</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="#" aria-label="Automata Lab home"><span class="brand-icon">A</span><span>automata<span class="brand-light">lab</span></span></a>
-      <div class="course-label">THEORY OF COMPUTATION</div>
-      <nav class="side-nav" aria-label="Main navigation">
-        <button class="nav-item active" data-view="simulator"><span class="nav-icon">◉</span> Simulator</button>
-        <button class="nav-item" data-view="machines"><span class="nav-icon">▦</span> Machine library</button>
-        <button class="nav-item" data-view="guide"><span class="nav-icon">⌘</span> Quick guide</button>
-      </nav>
-      <div class="sidebar-bottom"><div class="side-note"><span class="pulse-dot"></span><div><strong>Ready to explore</strong><small>Pick a machine and start</small></div></div><div class="version">INTERACTIVE LEARNING TOOL <span>v1.0</span></div></div>
-    </aside>
-    <main class="main-area">
-      <header class="topbar"><div class="breadcrumbs"><span>Workspace</span><span class="crumb-sep">/</span><strong id="crumb-current">Simulator</strong></div><div class="top-actions"><span class="keyboard-hint">Theory of Computation <b>•</b> Lab</span><span class="avatar">AL</span></div></header>
-      <section class="page-content" id="view-simulator">
-        <div class="page-heading"><div><div class="eyebrow">LEARN BY RUNNING</div><h1>Automata simulator</h1><p class="subtitle">Explore how machines process strings, one transition at a time.</p></div><div class="heading-badge"><span class="spark">✳</span> Interactive workspace</div></div>
-        <div class="mode-tabs" role="tablist" aria-label="Automaton type">
-          <button class="mode-tab selected" data-mode="dfa" role="tab"><span class="tab-glyph">◉</span><span><strong>DFA / NFA</strong><small>Finite automata</small></span></button>
-          <button class="mode-tab" data-mode="tm" role="tab"><span class="tab-glyph">⌁</span><span><strong>Turing machine</strong><small>Read, write & move</small></span></button>
-          <button class="mode-tab" data-mode="pda" role="tab"><span class="tab-glyph">▤</span><span><strong>Pushdown automaton</strong><small>Stack-based computation</small></span></button>
-        </div>
-        <div class="workspace-grid">
-          <div class="left-column">
-            <section class="card setup-card"><div class="card-heading"><div><span class="step-number">01</span><h2>Configure machine</h2></div><button class="text-button" id="machine-info">How it works <span>↗</span></button></div>
-              <label class="field-label" for="machine-select">MACHINE</label><div class="select-wrap"><select id="machine-select"></select><span class="select-arrow">⌄</span></div>
-              <p class="machine-description" id="machine-description"></p>
-              <div class="field-row"><div class="input-field"><label class="field-label" for="input-string">INPUT STRING</label><div class="input-wrap"><input id="input-string" value="" autocomplete="off" spellcheck="false" placeholder="Type a string…"/><span class="input-meta" id="input-alphabet"></span></div></div><button class="examples-button" id="example-button">Try example <span>↗</span></button></div>
-              <div class="input-feedback" id="input-feedback" aria-live="polite"></div>
-              <div class="control-row"><button class="button button-primary" id="run-button"><span>▶</span> Run</button><button class="button button-secondary" id="step-button"><span>▸|</span> Step</button><button class="button button-secondary" id="pause-button" disabled><span>Ⅱ</span> Pause</button><button class="button button-ghost" id="reset-button"><span>↺</span> Reset</button></div>
-              <div class="speed-row"><label for="speed-range">Execution speed</label><input id="speed-range" type="range" min="1" max="5" value="3"/><span id="speed-value">Normal</span></div>
-            </section>
-            <section class="card diagram-card"><div class="card-heading"><div><span class="step-number">02</span><h2>State diagram</h2></div><div class="diagram-legend"><span><i class="legend-start"></i>Start</span><span><i class="legend-accept"></i>Accept</span></div></div><div class="diagram-canvas" id="diagram-canvas"><svg id="diagram-svg" viewBox="0 0 640 230" role="img" aria-label="Automaton state diagram"></svg></div><div class="diagram-caption"><span class="live-dot"></span><span id="diagram-caption">States highlight as the machine runs.</span><button class="icon-button" id="fit-diagram" title="Fit diagram">⤢</button></div></section>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f5f7" />
+    <title>Automata Lab — Theory of Computation</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#" aria-label="Automata Lab home"
+          ><span class="brand-icon">A</span
+          ><span>automata<span class="brand-light">lab</span></span></a
+        >
+        <div class="course-label">THEORY OF COMPUTATION</div>
+        <nav class="side-nav" aria-label="Main navigation">
+          <button class="nav-item active" data-view="simulator">
+            <span class="nav-icon">◉</span> Simulator
+          </button>
+          <button class="nav-item" data-view="machines">
+            <span class="nav-icon">▦</span> Machine library
+          </button>
+          <button class="nav-item" data-view="guide">
+            <span class="nav-icon">⌘</span> Quick guide
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="side-note">
+            <span class="pulse-dot"></span>
+            <div>
+              <strong>Ready to explore</strong
+              ><small>Pick a machine and start</small>
+            </div>
           </div>
-          <div class="right-column">
-            <section class="card monitor-card"><div class="card-heading"><div><span class="step-number">03</span><h2>Live monitor</h2></div><span class="status-pill idle" id="status-pill"><i></i><span>Ready</span></span></div>
-              <div class="monitor-stats"><div><span class="stat-label">CURRENT STATE</span><strong id="current-state">—</strong></div><div><span class="stat-label">STEPS</span><strong id="step-count">0</strong></div><div><span class="stat-label">READING</span><strong id="current-symbol">—</strong></div></div>
-              <div class="visualization"><div class="visual-label"><span id="visual-title">INPUT TAPE</span><span id="pointer-label">HEAD POSITION <b>—</b></span></div><div id="tape-view" class="tape-view"></div><div class="input-pointer" id="input-pointer"><span>▼</span><i></i></div></div>
-              <div class="stack-section hidden" id="stack-section"><div class="visual-label"><span>STACK (TOP FIRST)</span><span id="stack-label">0 items</span></div><div id="stack-view" class="stack-view"></div></div>
-              <div class="transition-banner" id="transition-banner"><span class="transition-icon">↳</span><span id="transition-text">Choose an input and run the machine to see its first transition.</span></div>
-              <div class="result-banner hidden" id="result-banner"></div>
-            </section>
-            <section class="card log-card"><div class="card-heading"><div><span class="step-number">04</span><h2>Execution trace</h2></div><span class="log-count" id="log-count">0 transitions</span></div><div class="table-scroll"><table><thead><tr><th>#</th><th>STATE</th><th>READ</th><th>TRANSITION</th><th>TO</th></tr></thead><tbody id="history-body"><tr class="empty-row"><td colspan="5"><span class="empty-icon">⌁</span><br/>Your transition history will appear here.</td></tr></tbody></table></div><button class="clear-log" id="clear-log">Clear history</button></section>
-          </div>
+          <div class="version">INTERACTIVE LEARNING TOOL <span>v1.0</span></div>
         </div>
-        <footer class="page-footer"><span>Built for learning formal languages & computation</span><span>Every transition tells a story <b>✳</b></span></footer>
-      </section>
-      <section class="page-content alternate-view hidden" id="view-machines"><div class="page-heading"><div><div class="eyebrow">EXPLORE THE LIBRARY</div><h1>Machine library</h1><p class="subtitle">A small collection of classic automata to learn from.</p></div></div><div class="library-grid" id="library-grid"></div></section>
-      <section class="page-content alternate-view hidden" id="view-guide"><div class="page-heading"><div><div class="eyebrow">A QUICK START</div><h1>How to use the simulator</h1><p class="subtitle">Follow a machine's decisions, one small step at a time.</p></div></div><div class="guide-grid"><article class="card guide-card"><span class="guide-n">01</span><h2>Choose a machine</h2><p>Start with a finite automaton, then explore a Turing machine or a pushdown automaton. Each one comes with a short explanation and an example string.</p></article><article class="card guide-card"><span class="guide-n">02</span><h2>Enter a string</h2><p>Use only symbols from the machine's input alphabet. The simulator checks your string before execution so you can spot invalid symbols right away.</p></article><article class="card guide-card"><span class="guide-n">03</span><h2>Watch it work</h2><p>Run continuously or advance one transition at a time. Follow the active state, read head, tape or stack, and transition history.</p></article><article class="card guide-card"><span class="guide-n">04</span><h2>Understand the result</h2><p>A machine accepts when its formal acceptance condition is met, rejects when it reaches a reject state, and may halt if no transition exists.</p></article></div><div class="card theory-note"><span class="note-icon">✳</span><div><strong>What is an automaton?</strong><p>An automaton is a mathematical model that reads or processes input according to a set of rules. Different types of machines have different computational power: finite automata have states, pushdown automata add a stack, and Turing machines can read and write on an unbounded tape.</p></div></div></section>
-    </main>
-  </div>
-  <div class="toast" id="toast" role="status"></div>
-  <script src="engines.js"></script>
-  <script src="app.js"></script>
-</body>
+      </aside>
+      <main class="main-area">
+        <header class="topbar">
+          <div class="breadcrumbs">
+            <span>Workspace</span><span class="crumb-sep">/</span
+            ><strong id="crumb-current">Simulator</strong>
+          </div>
+          <div class="top-actions">
+            <span class="keyboard-hint">Theory of Computation <b>•</b> Lab</span
+            ><span class="avatar">AL</span>
+          </div>
+        </header>
+        <section class="page-content" id="view-simulator">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">LEARN BY RUNNING</div>
+              <h1>Automata simulator</h1>
+              <p class="subtitle">
+                Explore how machines process strings, one transition at a time.
+              </p>
+            </div>
+            <div class="heading-badge">
+              <span class="spark">✳</span> Interactive workspace
+            </div>
+          </div>
+          <div class="mode-tabs" role="tablist" aria-label="Automaton type">
+            <button class="mode-tab selected" data-mode="dfa" role="tab">
+              <span class="tab-glyph">◉</span
+              ><span
+                ><strong>DFA / NFA</strong><small>Finite automata</small></span
+              >
+            </button>
+            <button class="mode-tab" data-mode="tm" role="tab">
+              <span class="tab-glyph">⌁</span
+              ><span
+                ><strong>Turing machine</strong
+                ><small>Read, write & move</small></span
+              >
+            </button>
+            <button class="mode-tab" data-mode="pda" role="tab">
+              <span class="tab-glyph">▤</span
+              ><span
+                ><strong>Pushdown automaton</strong
+                ><small>Stack-based computation</small></span
+              >
+            </button>
+          </div>
+          <div class="workspace-grid">
+            <div class="left-column">
+              <section class="card setup-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="step-number">01</span>
+                    <h2>Configure machine</h2>
+                  </div>
+                  <button class="text-button" id="machine-info">
+                    How it works <span>↗</span>
+                  </button>
+                </div>
+                <label class="field-label" for="machine-select">MACHINE</label>
+                <div class="select-wrap">
+                  <select id="machine-select"></select
+                  ><span class="select-arrow">⌄</span>
+                </div>
+                <p class="machine-description" id="machine-description"></p>
+                <div class="field-row">
+                  <div class="input-field">
+                    <label class="field-label" for="input-string"
+                      >INPUT STRING</label
+                    >
+                    <div class="input-wrap">
+                      <input
+                        id="input-string"
+                        value=""
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="Type a string…"
+                      /><span class="input-meta" id="input-alphabet"></span>
+                    </div>
+                  </div>
+                  <button class="examples-button" id="example-button">
+                    Try example <span>↗</span>
+                  </button>
+                </div>
+                <div
+                  class="input-feedback"
+                  id="input-feedback"
+                  aria-live="polite"
+                ></div>
+                <div class="control-row">
+                  <button class="button button-primary" id="run-button">
+                    <span>▶</span> Run</button
+                  ><button class="button button-secondary" id="step-button">
+                    <span>▸|</span> Step</button
+                  ><button
+                    class="button button-secondary"
+                    id="pause-button"
+                    disabled
+                  >
+                    <span>Ⅱ</span> Pause</button
+                  ><button class="button button-ghost" id="reset-button">
+                    <span>↺</span> Reset
+                  </button>
+                </div>
+                <div class="speed-row">
+                  <label for="speed-range">Execution speed</label
+                  ><input
+                    id="speed-range"
+                    type="range"
+                    min="1"
+                    max="5"
+                    value="3"
+                  /><span id="speed-value">Normal</span>
+                </div>
+              </section>
+              <section class="card diagram-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="step-number">02</span>
+                    <h2>State diagram</h2>
+                  </div>
+                  <div class="diagram-legend">
+                    <span><i class="legend-start"></i>Start</span
+                    ><span><i class="legend-accept"></i>Accept</span>
+                  </div>
+                </div>
+                <div class="diagram-canvas" id="diagram-canvas">
+                  <svg
+                    id="diagram-svg"
+                    viewBox="0 0 640 230"
+                    role="img"
+                    aria-label="Automaton state diagram"
+                  ></svg>
+                </div>
+                <div class="diagram-caption">
+                  <span class="live-dot"></span
+                  ><span id="diagram-caption"
+                    >States highlight as the machine runs.</span
+                  ><button
+                    class="icon-button"
+                    id="fit-diagram"
+                    title="Fit diagram"
+                  >
+                    ⤢
+                  </button>
+                </div>
+              </section>
+            </div>
+            <div class="right-column">
+              <section class="card monitor-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="step-number">03</span>
+                    <h2>Live monitor</h2>
+                  </div>
+                  <span class="status-pill idle" id="status-pill"
+                    ><i></i><span>Ready</span></span
+                  >
+                </div>
+                <div class="monitor-stats">
+                  <div>
+                    <span class="stat-label">CURRENT STATE</span
+                    ><strong id="current-state">—</strong>
+                  </div>
+                  <div>
+                    <span class="stat-label">STEPS</span
+                    ><strong id="step-count">0</strong>
+                  </div>
+                  <div>
+                    <span class="stat-label">READING</span
+                    ><strong id="current-symbol">—</strong>
+                  </div>
+                </div>
+                <div class="visualization">
+                  <div class="visual-label">
+                    <span id="visual-title">INPUT TAPE</span
+                    ><span id="pointer-label">HEAD POSITION <b>—</b></span>
+                  </div>
+                  <div id="tape-view" class="tape-view"></div>
+                  <div class="input-pointer" id="input-pointer">
+                    <span>▼</span><i></i>
+                  </div>
+                </div>
+                <div class="stack-section hidden" id="stack-section">
+                  <div class="visual-label">
+                    <span>STACK (TOP FIRST)</span
+                    ><span class="branch-count hidden" id="branch-count"></span
+                    ><span id="stack-label">0 items</span>
+                  </div>
+                  <div id="stack-view" class="stack-view"></div>
+                </div>
+                <div class="transition-banner" id="transition-banner">
+                  <span class="transition-icon">↳</span
+                  ><span id="transition-text"
+                    >Choose an input and run the machine to see its first
+                    transition.</span
+                  >
+                </div>
+                <div class="result-banner hidden" id="result-banner"></div>
+              </section>
+              <section class="card log-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="step-number">04</span>
+                    <h2>Execution trace</h2>
+                  </div>
+                  <span class="log-count" id="log-count">0 transitions</span>
+                </div>
+                <div class="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>STATE</th>
+                        <th>READ</th>
+                        <th>TRANSITION</th>
+                        <th>TO</th>
+                      </tr>
+                    </thead>
+                    <tbody id="history-body">
+                      <tr class="empty-row">
+                        <td colspan="5">
+                          <span class="empty-icon">⌁</span><br />Your transition
+                          history will appear here.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <button class="clear-log" id="clear-log">Clear history</button>
+              </section>
+              <section class="card transition-table-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="step-number">δ</span>
+                    <h2>Transition table</h2>
+                  </div>
+                  <span class="log-count" id="transition-count"></span>
+                </div>
+                <div class="transition-scroll">
+                  <table class="transition-table">
+                    <thead id="transition-table-head"></thead>
+                    <tbody id="transition-table-body"></tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </div>
+          <footer class="page-footer">
+            <span>Built for learning formal languages & computation</span
+            ><span>Every transition tells a story <b>✳</b></span>
+          </footer>
+        </section>
+        <section class="page-content alternate-view hidden" id="view-machines">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">EXPLORE THE LIBRARY</div>
+              <h1>Machine library</h1>
+              <p class="subtitle">
+                A small collection of classic automata to learn from.
+              </p>
+            </div>
+          </div>
+          <div class="library-grid" id="library-grid"></div>
+        </section>
+        <section class="page-content alternate-view hidden" id="view-guide">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">A QUICK START</div>
+              <h1>How to use the simulator</h1>
+              <p class="subtitle">
+                Follow a machine's decisions, one small step at a time.
+              </p>
+            </div>
+          </div>
+          <div class="guide-grid">
+            <article class="card guide-card">
+              <span class="guide-n">01</span>
+              <h2>Choose a machine</h2>
+              <p>
+                Start with a finite automaton, then explore a Turing machine or
+                a pushdown automaton. Each one comes with a short explanation
+                and an example string.
+              </p>
+            </article>
+            <article class="card guide-card">
+              <span class="guide-n">02</span>
+              <h2>Enter a string</h2>
+              <p>
+                Use only symbols from the machine's input alphabet. The
+                simulator checks your string before execution so you can spot
+                invalid symbols right away.
+              </p>
+            </article>
+            <article class="card guide-card">
+              <span class="guide-n">03</span>
+              <h2>Watch it work</h2>
+              <p>
+                Run continuously or advance one transition at a time. Follow the
+                active state, read head, tape or stack, and transition history.
+              </p>
+            </article>
+            <article class="card guide-card">
+              <span class="guide-n">04</span>
+              <h2>Understand the result</h2>
+              <p>
+                A machine accepts when its formal acceptance condition is met,
+                rejects when it reaches a reject state, and may halt if no
+                transition exists.
+              </p>
+            </article>
+          </div>
+          <div class="card theory-note">
+            <span class="note-icon">✳</span>
+            <div>
+              <strong>What is an automaton?</strong>
+              <p>
+                An automaton is a mathematical model that reads or processes
+                input according to a set of rules. Different types of machines
+                have different computational power: finite automata have states,
+                pushdown automata add a stack, and Turing machines can read and
+                write on an unbounded tape.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="engines.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>

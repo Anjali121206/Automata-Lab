@@ -313,6 +313,9 @@ body {
   gap: 17px;
   align-items: start;
 }
+.right-column > * {
+  min-width: 0;
+}
 .left-column,
 .right-column {
   display: grid;
@@ -487,6 +490,7 @@ body {
 }
 .control-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 9px 0 13px;
 }
@@ -610,6 +614,19 @@ body {
   font-size: 10px;
   text-anchor: middle;
   fill: #747f91;
+  white-space: pre;
+}
+.edge.active-edge {
+  stroke: #4665dd;
+  stroke-width: 2.6px;
+}
+.loop-edge.active-edge {
+  stroke: #4665dd;
+  stroke-width: 2.6px;
+}
+.edge-label.active-edge-label {
+  fill: #3654ce;
+  font-weight: 700;
 }
 .state-node circle {
   fill: #fff;
@@ -765,6 +782,12 @@ body {
   letter-spacing: 0;
   color: #74809a;
   margin-left: 4px;
+}
+.branch-count {
+  color: #526bd3;
+  font-size: 8px;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 .tape-view {
   min-height: 46px;
@@ -961,6 +984,37 @@ body {
   max-height: 230px;
   overflow: auto;
 }
+.transition-table-card {
+  padding: 18px 20px 14px;
+  min-width: 0;
+  overflow: hidden;
+}
+.transition-table-card .card-heading {
+  margin-bottom: 10px;
+}
+.transition-scroll {
+  max-height: 260px;
+  overflow: auto;
+}
+.transition-table {
+  min-width: 100%;
+  width: max-content;
+}
+.transition-table td,
+.transition-table th {
+  min-width: 44px;
+}
+.transition-table .transition-active td {
+  background: #eef2ff;
+  color: #3f5fd0;
+}
+.transition-table td.transition-active {
+  background: #e7edff;
+  color: #3f5fd0;
+}
+.transition-table .transition-active td:first-child {
+  font-weight: 700;
+}
 table {
   border-collapse: collapse;
   width: 100%;
@@ -1075,6 +1129,12 @@ td:first-child {
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.5px;
+}
+.library-mode {
+  float: right;
+  color: #8791a1;
+  font-size: 8px;
+  padding-top: 4px;
 }
 .library-card h2 {
   margin: 14px 0 7px;
