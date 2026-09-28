@@ -319,6 +319,7 @@
         example: "1011",
         examples: [
           { input: "0", expected: "1" },
+          { input: "00", expected: "1" },
           { input: "1", expected: "10" },
           { input: "10", expected: "11" },
           { input: "1011", expected: "1100" },

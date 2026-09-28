@@ -78,6 +78,8 @@ A PDA definition has `states`, `start`, `accepts`, `alphabet`, `transitions`, an
 | PDA | Even palindrome `wwᴿ` | `abba` | `aba` rejects |
 | PDA | Equal counts of `a` and `b` | `abba` | `aab` rejects |
 
+Binary increment emits the canonical representation without leading zeroes, so `00` produces `1`.
+
 ## Data Flow
 
 ```mermaid
