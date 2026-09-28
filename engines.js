@@ -257,76 +257,183 @@
   }
   /** Creates a stepwise Turing-machine runner for one input string. */
   function createTuringRunner(machine, input) {
-    let tape = [...input],
-      head = 0,
-      state = machine.start,
-      history = [],
-      status = "ready",
-      steps = 0;
-    const blank = "□";
+    if (!machine || !Array.isArray(machine.states)) {
+      throw new Error("Turing machine states must be an array.");
+    }
+    if (typeof input !== "string") {
+      throw new Error("Turing machine input must be a string.");
+    }
+
+    const states = new Set(machine.states);
+    const accepts = machine.accepts || [];
+    const rejects = machine.rejects || [];
+    const alphabet = new Set(machine.alphabet || []);
+    const tapeAlphabet = new Set(machine.tapeAlphabet || []);
+    const transitions = machine.transitions || {};
+    const blank = machine.blank ?? "□";
+
+    if (!states.has(machine.start)) {
+      throw new Error(`Turing machine start state "${machine.start}" does not exist.`);
+    }
+    for (const state of accepts) {
+      if (!states.has(state)) {
+        throw new Error(`Turing machine accept state "${state}" does not exist.`);
+      }
+    }
+    for (const state of rejects) {
+      if (!states.has(state)) {
+        throw new Error(`Turing machine reject state "${state}" does not exist.`);
+      }
+    }
+    if (!tapeAlphabet.has(blank)) {
+      throw new Error(`Turing machine blank symbol "${blank}" is not in tapeAlphabet.`);
+    }
+    for (const symbol of alphabet) {
+      if (!tapeAlphabet.has(symbol)) {
+        throw new Error(`Input symbol "${symbol}" is not in tapeAlphabet.`);
+      }
+    }
+    for (const [from, bySymbol] of Object.entries(transitions)) {
+      if (!states.has(from)) {
+        throw new Error(`Turing transition state "${from}" does not exist.`);
+      }
+      for (const [symbol, rule] of Object.entries(bySymbol)) {
+        if (!tapeAlphabet.has(symbol)) {
+          throw new Error(`Read symbol "${symbol}" is not in tapeAlphabet.`);
+        }
+        if (!rule || typeof rule !== "object") {
+          throw new Error(`Transition for (${from}, ${symbol}) must be a rule object.`);
+        }
+        if (!tapeAlphabet.has(rule.write)) {
+          throw new Error(`Written symbol "${rule.write}" is not in tapeAlphabet.`);
+        }
+        if (!["L", "R", "S"].includes(rule.move)) {
+          throw new Error(`Invalid move "${rule.move}" for (${from}, ${symbol}); expected L, R, or S.`);
+        }
+        if (!states.has(rule.next)) {
+          throw new Error(`Next state "${rule.next}" for (${from}, ${symbol}) does not exist.`);
+        }
+      }
+    }
+    for (const symbol of input) {
+      if (!alphabet.has(symbol)) {
+        throw new Error(`Input symbol "${symbol}" is not in the machine alphabet.`);
+      }
+    }
+
+    let tape = input.length ? [...input] : [blank];
+    let head = 0;
+    let state = machine.start;
+    let history = [];
+    let status = "ready";
+    let steps = 0;
+    let reason = null;
+
     /** Reads the current tape cell, using blank beyond the allocated tape. */
     const read = () => tape[head] ?? blank;
+    /** Returns the nonblank output symbols remaining on the tape. */
+    const output = () => {
+      let first = 0;
+      let last = tape.length;
+      while (first < last && tape[first] === blank) first++;
+      while (last > first && tape[last - 1] === blank) last--;
+      return tape.slice(first, last).join("");
+    };
     /** Returns a detached view of the current tape configuration. */
     const snap = () => ({
       tape: [...tape],
-      displayTape: tape.length ? [...tape] : [blank],
+      displayTape: [...tape],
       head,
+      headIndex: head,
       state,
       history: [...history],
       status,
       steps,
       reading: read(),
+      blank,
+      reason,
+      output: output(),
     });
-    /** Applies one Turing transition when one is defined. */
+    /** Applies one transition or records the applicable terminal outcome. */
     function step() {
       if (!["ready", "running"].includes(status)) return snap();
-      if (machine.accepts.includes(state)) {
+      if (accepts.includes(state)) {
         status = "accepted";
         return snap();
       }
-      const symbol = read(),
-        rule = machine.transitions[state]?.[symbol];
-      if (!rule) {
-        status = "halted";
+      if (rejects.includes(state)) {
+        status = "rejected";
         return snap();
       }
+
+      const symbol = read();
+      const rule = transitions[state]?.[symbol];
+      if (!rule) {
+        status = "rejected";
+        reason = `no transition for (${state}, ${symbol})`;
+        return snap();
+      }
+
       const before = state;
+      const headBefore = head;
       tape[head] = rule.write;
-      head += rule.move === "L" ? -1 : rule.move === "R" ? 1 : 0;
-      if (head < 0) {
+      const nextHead = head + (rule.move === "L" ? -1 : rule.move === "R" ? 1 : 0);
+      if (nextHead < 0) {
         tape.unshift(blank);
         head = 0;
+      } else {
+        head = nextHead;
+        if (head >= tape.length) tape.push(blank);
       }
-      while (head >= tape.length) tape.push(blank);
       state = rule.next;
       steps++;
-      status = machine.accepts.includes(state) ? "accepted" : "running";
+      status = accepts.includes(state)
+        ? "accepted"
+        : rejects.includes(state)
+          ? "rejected"
+          : "running";
       history.push({
         index: steps,
         state: before,
         symbol,
         transition: `${symbol} → ${rule.write}, ${rule.move}`,
         to: state,
+        write: rule.write,
+        move: rule.move,
+        headBefore,
+        headAfter: head,
       });
       return snap();
     }
     return {
       step,
       snapshot: snap,
-      /** Runs until the machine reaches a terminal state. */
-      run() {
-        while (status === "ready" || status === "running") step();
+      /** Runs until termination or the requested transition limit. */
+      run(maxSteps = 10000) {
+        if (!Number.isInteger(maxSteps) || maxSteps < 0) {
+          throw new Error("Turing run maxSteps must be a non-negative integer.");
+        }
+        let runSteps = 0;
+        while (["ready", "running"].includes(status) && runSteps < maxSteps) {
+          const previousSteps = steps;
+          step();
+          if (steps > previousSteps) runSteps++;
+        }
+        if (["ready", "running"].includes(status)) {
+          status = "halted";
+          reason = "step limit exceeded";
+        }
         return snap();
       },
-      /** Restores the input tape and initial machine state. */
+      /** Restores the initial tape and machine state. */
       reset() {
-        tape = [...input];
-        if (!tape.length) tape = [blank];
+        tape = input.length ? [...input] : [blank];
         head = 0;
         state = machine.start;
         history = [];
         status = "ready";
         steps = 0;
+        reason = null;
         return snap();
       },
     };
